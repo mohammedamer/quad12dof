@@ -61,7 +61,7 @@ const int PWM_FREQ = 50;
 const int SERVO_MIN_US = 500;
 const int SERVO_MAX_US = 2500;
 
-const int DELTA_ANGLE = 30;
+const int DELTA_ANGLE = 20;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
 
