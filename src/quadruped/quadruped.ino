@@ -19,28 +19,41 @@ enum ServoId
   SERVO_COUNT
 };
 
+struct Limb
+{
+  ServoId hip;
+  ServoId knee;
+  ServoId leg;
+};
+
+struct Limb leftAnterior = {L11, L12, L13};
+struct Limb rightAnterior = {R11, R12, R13};
+struct Limb leftPosterior = {L21, L22, L23};
+struct Limb rightPosterior = {R21, R22, R23};
+
 struct ServoConfig
 {
   const char *name;
   uint8_t channel;
   int8_t direction;
+  int neutralAngle;
 };
 
 // +ve is forward/up
 
 ServoConfig servos[SERVO_COUNT] = {
-    {"L11", 0, -1},
-    {"L12", 1, 0},
-    {"L13", 2, 0},
-    {"L21", 3, -1},
-    {"L22", 4, -1},
-    {"L23", 5, -1},
-    {"R11", 6, 0},
-    {"R12", 7, -1},
-    {"R13", 8, -1},
-    {"R21", 9, 0},
-    {"R22", 10, 0},
-    {"R23", 11, 0},
+    {"L11", 0, -1, 90},
+    {"L12", 1, 0, 90},
+    {"L13", 2, 0, 90},
+    {"R11", 3, 0, 90},
+    {"R12", 4, -1, 90},
+    {"R13", 5, -1, 110},
+    {"L21", 6, -1, 90},
+    {"L22", 7, -1, 90},
+    {"L23", 8, -1, 90},
+    {"R21", 9, 0, 90},
+    {"R22", 10, 0, 90},
+    {"R23", 11, 0, 90},
 };
 
 const int PWM_FREQ = 50;
@@ -48,7 +61,7 @@ const int PWM_FREQ = 50;
 const int SERVO_MIN_US = 500;
 const int SERVO_MAX_US = 2500;
 
-const int NEUTRAL_ANGLE = 90;
+const int DELTA_ANGLE = 30;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
 
@@ -75,18 +88,37 @@ void setNeutral()
 {
   for (int i = 0; i < SERVO_COUNT; i++)
   {
-    setServo((ServoId)i, NEUTRAL_ANGLE);
+    setServo((ServoId)i, servos[i].neutralAngle);
   }
 }
 
-void testServos()
+void moveServoDelta(ServoId id, bool up)
 {
-  setNeutral();
 
-  for (int i = 0; i < SERVO_COUNT; i++)
+  int direction = servos[id].direction;
+
+  if (!up)
   {
-    setServo((ServoId)i, 95);
+    direction *= -1;
   }
+
+  setServo(id, servos[id].neutralAngle + direction * DELTA_ANGLE);
+}
+
+void moveLimb(struct Limb &limb)
+{
+  moveServoDelta(limb.hip, true);
+  moveServoDelta(limb.knee, true);
+}
+
+void putLimb(struct Limb &limb)
+{
+  moveServoDelta(limb.knee, false);
+}
+
+void twistLimb(struct Limb &limb)
+{
+  moveServoDelta(limb.hip, false);
 }
 
 void setup()
@@ -97,15 +129,35 @@ void setup()
   pwm.begin();
   pwm.setPWMFreq(PWM_FREQ);
   delay(10);
+
+  setNeutral();
 }
 
 void loop()
 {
-  Serial.println("hello from esp32");
+  moveLimb(leftAnterior);
+  moveLimb(rightPosterior);
+  twistLimb(rightAnterior);
+  twistLimb(leftPosterior);
 
-  setNeutral();
-  delay(1000);
-
-  testServos();
   delay(500);
+
+  putLimb(leftAnterior);
+  putLimb(rightPosterior);
+
+  delay(500);
+
+  moveLimb(rightAnterior);
+  moveLimb(leftPosterior);
+  twistLimb(leftAnterior);
+  twistLimb(rightPosterior);
+
+  delay(500);
+
+  putLimb(rightAnterior);
+  putLimb(leftPosterior);
+
+  delay(500);
+
+  // setNeutral();
 }
