@@ -145,24 +145,24 @@ void loop()
   twistLimb(rightAnterior);
   twistLimb(leftPosterior);
 
-  delay(500);
+  delay(100);
 
   putLimb(leftAnterior);
   putLimb(rightPosterior);
 
-  delay(500);
+  delay(100);
 
   moveLimb(rightAnterior);
   moveLimb(leftPosterior);
   twistLimb(leftAnterior);
   twistLimb(rightPosterior);
 
-  delay(500);
+  delay(100);
 
   putLimb(rightAnterior);
   putLimb(leftPosterior);
 
-  delay(500);
+  delay(100);
 
   // setNeutral();
   // delay(1000);
