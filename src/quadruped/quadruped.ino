@@ -43,17 +43,17 @@ struct ServoConfig
 
 ServoConfig servos[SERVO_COUNT] = {
     {"L11", 0, -1, 90},
-    {"L12", 1, 0, 90},
-    {"L13", 2, 0, 90},
-    {"R11", 3, 0, 90},
+    {"L12", 1, 1, 90},
+    {"L13", 2, 1, 90},
+    {"R11", 3, 1, 90},
     {"R12", 4, -1, 90},
     {"R13", 5, -1, 110},
     {"L21", 6, -1, 90},
     {"L22", 7, -1, 90},
     {"L23", 8, -1, 90},
-    {"R21", 9, 0, 90},
-    {"R22", 10, 0, 90},
-    {"R23", 11, 0, 90},
+    {"R21", 9, 1, 90},
+    {"R22", 10, 1, 90},
+    {"R23", 11, 1, 90},
 };
 
 const int PWM_FREQ = 50;
@@ -136,28 +136,29 @@ void setup()
 void loop()
 {
   moveLimb(leftAnterior);
-  moveLimb(rightPosterior);
-  twistLimb(rightAnterior);
-  twistLimb(leftPosterior);
+  // moveLimb(rightPosterior);
+  // twistLimb(rightAnterior);
+  // twistLimb(leftPosterior);
 
-  delay(500);
+  delay(1000);
 
-  putLimb(leftAnterior);
-  putLimb(rightPosterior);
+  // putLimb(leftAnterior);
+  // putLimb(rightPosterior);
 
-  delay(500);
+  // delay(500);
 
-  moveLimb(rightAnterior);
-  moveLimb(leftPosterior);
-  twistLimb(leftAnterior);
-  twistLimb(rightPosterior);
+  // moveLimb(rightAnterior);
+  // moveLimb(leftPosterior);
+  // twistLimb(leftAnterior);
+  // twistLimb(rightPosterior);
 
-  delay(500);
+  // delay(500);
 
-  putLimb(rightAnterior);
-  putLimb(leftPosterior);
+  // putLimb(rightAnterior);
+  // putLimb(leftPosterior);
 
-  delay(500);
+  // delay(500);
 
-  // setNeutral();
+  setNeutral();
+  delay(1000);
 }
