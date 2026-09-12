@@ -92,6 +92,11 @@ void setNeutral()
   }
 }
 
+void setServoNeutral(ServoId id)
+{
+  setServo((ServoId)id, servos[id].neutralAngle);
+}
+
 void moveServoDelta(ServoId id, bool up)
 {
 
@@ -113,7 +118,7 @@ void moveLimb(struct Limb &limb)
 
 void putLimb(struct Limb &limb)
 {
-  moveServoDelta(limb.knee, false);
+  setServoNeutral(limb.knee);
 }
 
 void twistLimb(struct Limb &limb)
@@ -136,29 +141,29 @@ void setup()
 void loop()
 {
   moveLimb(leftAnterior);
-  // moveLimb(rightPosterior);
-  // twistLimb(rightAnterior);
-  // twistLimb(leftPosterior);
+  moveLimb(rightPosterior);
+  twistLimb(rightAnterior);
+  twistLimb(leftPosterior);
 
-  delay(1000);
+  delay(500);
 
-  // putLimb(leftAnterior);
-  // putLimb(rightPosterior);
+  putLimb(leftAnterior);
+  putLimb(rightPosterior);
 
-  // delay(500);
+  delay(500);
 
-  // moveLimb(rightAnterior);
-  // moveLimb(leftPosterior);
-  // twistLimb(leftAnterior);
-  // twistLimb(rightPosterior);
+  moveLimb(rightAnterior);
+  moveLimb(leftPosterior);
+  twistLimb(leftAnterior);
+  twistLimb(rightPosterior);
 
-  // delay(500);
+  delay(500);
 
-  // putLimb(rightAnterior);
-  // putLimb(leftPosterior);
+  putLimb(rightAnterior);
+  putLimb(leftPosterior);
 
-  // delay(500);
+  delay(500);
 
-  setNeutral();
-  delay(1000);
+  // setNeutral();
+  // delay(1000);
 }
