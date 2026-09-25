@@ -110,10 +110,10 @@ void moveServoDelta(ServoId id, bool up)
   setServo(id, servos[id].neutralAngle + direction * DELTA_ANGLE);
 }
 
-void moveLimb(struct Limb &limb)
+void moveLimb(struct Limb &limb, bool forward)
 {
-  moveServoDelta(limb.hip, true);
-  moveServoDelta(limb.knee, true);
+  moveServoDelta(limb.hip, forward);
+  moveServoDelta(limb.knee, true); // Lift the foot in either travel direction.
 }
 
 void putLimb(struct Limb &limb)
@@ -121,9 +121,36 @@ void putLimb(struct Limb &limb)
   setServoNeutral(limb.knee);
 }
 
-void twistLimb(struct Limb &limb)
+void twistLimb(struct Limb &limb, bool forward)
 {
-  moveServoDelta(limb.hip, false);
+  moveServoDelta(limb.hip, forward);
+}
+
+void move(bool forward)
+{
+  moveLimb(leftAnterior, forward);
+  moveLimb(rightPosterior, forward);
+  twistLimb(rightAnterior, !forward);
+  twistLimb(leftPosterior, !forward);
+
+  delay(100);
+
+  putLimb(leftAnterior);
+  putLimb(rightPosterior);
+
+  delay(100);
+
+  moveLimb(rightAnterior, forward);
+  moveLimb(leftPosterior, forward);
+  twistLimb(leftAnterior, !forward);
+  twistLimb(rightPosterior, !forward);
+
+  delay(100);
+
+  putLimb(rightAnterior);
+  putLimb(leftPosterior);
+
+  delay(100);
 }
 
 void setup()
@@ -140,30 +167,8 @@ void setup()
 
 void loop()
 {
-  // moveLimb(leftAnterior);
-  // moveLimb(rightPosterior);
-  // twistLimb(rightAnterior);
-  // twistLimb(leftPosterior);
 
-  // delay(100);
-
-  // putLimb(leftAnterior);
-  // putLimb(rightPosterior);
-
-  // delay(100);
-
-  // moveLimb(rightAnterior);
-  // moveLimb(leftPosterior);
-  // twistLimb(leftAnterior);
-  // twistLimb(rightPosterior);
-
-  // delay(100);
-
-  // putLimb(rightAnterior);
-  // putLimb(leftPosterior);
-
-  // delay(100);
-
-  setNeutral();
-  delay(1000);
+  move(true);
+  // setNeutral();
+  // delay(1000);
 }
