@@ -153,6 +153,33 @@ void move(bool forward)
   delay(100);
 }
 
+void turn(bool right)
+{
+  moveLimb(leftAnterior, right);
+  moveLimb(rightPosterior, !right);
+  twistLimb(rightAnterior, right);
+  twistLimb(leftPosterior, !right);
+
+  delay(100);
+
+  putLimb(leftAnterior);
+  putLimb(rightPosterior);
+
+  delay(100);
+
+  moveLimb(rightAnterior, !right);
+  moveLimb(leftPosterior, right);
+  twistLimb(leftAnterior, !right);
+  twistLimb(rightPosterior, right);
+
+  delay(100);
+
+  putLimb(rightAnterior);
+  putLimb(leftPosterior);
+
+  delay(100);
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -168,7 +195,8 @@ void setup()
 void loop()
 {
 
-  move(true);
+  turn(false);
+  // move(true);
   // setNeutral();
   // delay(1000);
 }
