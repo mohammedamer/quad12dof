@@ -123,6 +123,8 @@ const int HALF_DELTA = DELTA_ANGLE / 2;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
 
+RobotCommand lastCommand = RobotCommand::Stop;
+
 int angleToPulse(int angle)
 {
   angle = constrain(angle, 0, 180);
@@ -295,7 +297,8 @@ const char *commandToText(RobotCommand command)
 {
   for (const CommandMapping &mapping : commandMappings)
   {
-    if (mapping.command == command) return mapping.text;
+    if (mapping.command == command)
+      return mapping.text;
   }
   return "UNKNOWN";
 }
@@ -308,6 +311,48 @@ void handleRobotCommand(RobotCommand command)
   // Implement robot behavior with switch (command) and RobotCommand cases.
   // Each command represents the complete selected direction state.
 
+  switch (command)
+  {
+  case RobotCommand::Forward:
+
+    move(true, NEUTRAL);
+    break;
+
+  case RobotCommand::Backward:
+
+    move(false, NEUTRAL);
+    break;
+
+  case RobotCommand::Left:
+
+    turn(false);
+    break;
+
+  case RobotCommand::Right:
+
+    turn(true);
+    break;
+
+  case RobotCommand::ForwardLeft:
+
+    move(true, LEFT);
+    break;
+
+  case RobotCommand::ForwardRight:
+
+    move(true, RIGHT);
+    break;
+
+  case RobotCommand::BackwardLeft:
+
+    move(false, LEFT);
+    break;
+
+  case RobotCommand::BackwardRight:
+
+    move(false, RIGHT);
+    break;
+  }
 }
 
 void queueRobotCommand(RobotCommand command)
@@ -325,11 +370,13 @@ void onWebSocketEvent(AsyncWebSocket *socket, AsyncWebSocketClient *client,
     queueRobotCommand(RobotCommand::Stop);
     return;
   }
-  if (type != WS_EVT_DATA) return;
+  if (type != WS_EVT_DATA)
+    return;
 
   AwsFrameInfo *info = static_cast<AwsFrameInfo *>(arg);
   if (!info->final || info->index != 0 || info->len != len ||
-      info->opcode != WS_TEXT || len == 0 || len >= COMMAND_SIZE) return;
+      info->opcode != WS_TEXT || len == 0 || len >= COMMAND_SIZE)
+    return;
 
   RobotCommand command;
   // WebSocket data is length-delimited, not necessarily null-terminated.
@@ -356,9 +403,8 @@ void setupWifiController()
   }
   ws.onEvent(onWebSocketEvent);
   server.addHandler(&ws);
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/html", index_html);
-  });
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(200, "text/html", index_html); });
   server.begin();
   Serial.print("Controller: http://");
   Serial.println(WiFi.softAPIP());
@@ -383,8 +429,11 @@ void loop()
   RobotCommand command;
   if (commandQueue != nullptr && xQueueReceive(commandQueue, &command, 0) == pdTRUE)
   {
-    handleRobotCommand(command);
+    lastCommand = command;
   }
+
+  handleRobotCommand(lastCommand);
+
   delay(1);
 
   // turn(false);
