@@ -123,7 +123,7 @@ const int HALF_DELTA = DELTA_ANGLE / 2;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
 
-RobotCommand lastCommand = RobotCommand::Stop;
+RobotCommand currentCommand = RobotCommand::Stop;
 
 int angleToPulse(int angle)
 {
@@ -305,14 +305,15 @@ const char *commandToText(RobotCommand command)
 
 void handleRobotCommand(RobotCommand command)
 {
-  Serial.print("Command: ");
-  Serial.println(commandToText(command));
-
-  // Implement robot behavior with switch (command) and RobotCommand cases.
   // Each command represents the complete selected direction state.
 
   switch (command)
   {
+  case RobotCommand::Stop:
+
+    setNeutral();
+    break;
+
   case RobotCommand::Forward:
 
     move(true, NEUTRAL);
@@ -427,17 +428,20 @@ void loop()
 {
   ws.cleanupClients();
   RobotCommand command;
-  if (commandQueue != nullptr && xQueueReceive(commandQueue, &command, 0) == pdTRUE)
+  const bool receivedCommand = commandQueue != nullptr &&
+                               xQueueReceive(commandQueue, &command, 0) == pdTRUE;
+  if (receivedCommand)
   {
-    lastCommand = command;
+    currentCommand = command;
+    Serial.print("Command: ");
+    Serial.println(commandToText(currentCommand));
   }
 
-  handleRobotCommand(lastCommand);
+  // Apply Stop once on receipt; keep running gait cycles for movement commands.
+  if (receivedCommand || currentCommand != RobotCommand::Stop)
+  {
+    handleRobotCommand(currentCommand);
+  }
 
   delay(1);
-
-  // turn(false);
-  // move(false, LEFT);
-  // setNeutral();
-  // delay(1000);
 }
