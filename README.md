@@ -65,6 +65,10 @@ queues `STOP` and clears the other connected controllers too.
 
 `handleRobotCommand()` in `src/quadruped/quadruped.ino` only logs commands for now;
 add your robot behavior there. It runs from `loop()`, once per received state.
+Incoming strings are validated by `parseCommand()` and converted to `RobotCommand`;
+the queue and handler use that enum. Unknown strings are ignored. Use cases such
+as `RobotCommand::ForwardRight` in the handler; text is retained for WebSocket
+messages and serial logging.
 States are `STOP`, `FORWARD`, `BACKWARD`, `LEFT`, `RIGHT`, `FORWARD_LEFT`,
 `FORWARD_RIGHT`, `BACKWARD_LEFT`, and `BACKWARD_RIGHT`. Each replaces the entire
 previous selection. The queue keeps only the latest pending state. For ongoing

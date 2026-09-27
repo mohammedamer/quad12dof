@@ -15,6 +15,37 @@ AsyncWebSocket ws("/ws");
 QueueHandle_t commandQueue;
 const size_t COMMAND_SIZE = 24;
 
+enum class RobotCommand : uint8_t
+{
+  Stop,
+  Forward,
+  Backward,
+  Left,
+  Right,
+  ForwardLeft,
+  ForwardRight,
+  BackwardLeft,
+  BackwardRight
+};
+
+struct CommandMapping
+{
+  const char *text;
+  RobotCommand command;
+};
+
+const CommandMapping commandMappings[] = {
+    {"STOP", RobotCommand::Stop},
+    {"FORWARD", RobotCommand::Forward},
+    {"BACKWARD", RobotCommand::Backward},
+    {"LEFT", RobotCommand::Left},
+    {"RIGHT", RobotCommand::Right},
+    {"FORWARD_LEFT", RobotCommand::ForwardLeft},
+    {"FORWARD_RIGHT", RobotCommand::ForwardRight},
+    {"BACKWARD_LEFT", RobotCommand::BackwardLeft},
+    {"BACKWARD_RIGHT", RobotCommand::BackwardRight},
+};
+
 enum ServoId
 {
   L11,
@@ -246,21 +277,43 @@ void turn(bool right)
   delay(100);
 }
 
-void handleRobotCommand(const String &command)
+bool parseCommand(const String &text, RobotCommand &result)
 {
-  Serial.print("Command: ");
-  Serial.println(command);
-  // TODO: Implement robot behavior here. Commands are complete states:
-  // STOP, FORWARD, BACKWARD, LEFT, RIGHT,
-  // FORWARD_LEFT, FORWARD_RIGHT, BACKWARD_LEFT, BACKWARD_RIGHT.
+  for (const CommandMapping &mapping : commandMappings)
+  {
+    if (text.length() == strlen(mapping.text) &&
+        memcmp(text.c_str(), mapping.text, text.length()) == 0)
+    {
+      result = mapping.command;
+      return true;
+    }
+  }
+  return false;
 }
 
-void queueRobotCommand(const char *command)
+const char *commandToText(RobotCommand command)
 {
-  char pending[COMMAND_SIZE] = {};
-  strlcpy(pending, command, sizeof(pending));
-  xQueueOverwrite(commandQueue, pending);
-  ws.textAll(command);
+  for (const CommandMapping &mapping : commandMappings)
+  {
+    if (mapping.command == command) return mapping.text;
+  }
+  return "UNKNOWN";
+}
+
+void handleRobotCommand(RobotCommand command)
+{
+  Serial.print("Command: ");
+  Serial.println(commandToText(command));
+
+  // Implement robot behavior with switch (command) and RobotCommand cases.
+  // Each command represents the complete selected direction state.
+
+}
+
+void queueRobotCommand(RobotCommand command)
+{
+  xQueueOverwrite(commandQueue, &command);
+  ws.textAll(commandToText(command));
 }
 
 void onWebSocketEvent(AsyncWebSocket *socket, AsyncWebSocketClient *client,
@@ -269,7 +322,7 @@ void onWebSocketEvent(AsyncWebSocket *socket, AsyncWebSocketClient *client,
   if (type == WS_EVT_CONNECT || type == WS_EVT_DISCONNECT)
   {
     // New/reconnected controllers start with all directions cleared.
-    queueRobotCommand("STOP");
+    queueRobotCommand(RobotCommand::Stop);
     return;
   }
   if (type != WS_EVT_DATA) return;
@@ -278,22 +331,18 @@ void onWebSocketEvent(AsyncWebSocket *socket, AsyncWebSocketClient *client,
   if (!info->final || info->index != 0 || info->len != len ||
       info->opcode != WS_TEXT || len == 0 || len >= COMMAND_SIZE) return;
 
-  const char *commands[] = {"STOP", "FORWARD", "BACKWARD", "LEFT", "RIGHT",
-                            "FORWARD_LEFT", "FORWARD_RIGHT",
-                            "BACKWARD_LEFT", "BACKWARD_RIGHT"};
-  for (const char *command : commands)
+  RobotCommand command;
+  // WebSocket data is length-delimited, not necessarily null-terminated.
+  const String text(reinterpret_cast<const char *>(data), len);
+  if (parseCommand(text, command))
   {
-    if (strlen(command) == len && memcmp(data, command, len) == 0)
-    {
-      queueRobotCommand(command);
-      return;
-    }
+    queueRobotCommand(command);
   }
 }
 
 void setupWifiController()
 {
-  commandQueue = xQueueCreate(1, COMMAND_SIZE);
+  commandQueue = xQueueCreate(1, sizeof(RobotCommand));
   if (commandQueue == nullptr)
   {
     Serial.println("Unable to create controller queue");
@@ -331,10 +380,10 @@ void setup()
 void loop()
 {
   ws.cleanupClients();
-  char command[COMMAND_SIZE];
-  if (commandQueue != nullptr && xQueueReceive(commandQueue, command, 0) == pdTRUE)
+  RobotCommand command;
+  if (commandQueue != nullptr && xQueueReceive(commandQueue, &command, 0) == pdTRUE)
   {
-    handleRobotCommand(String(command));
+    handleRobotCommand(command);
   }
   delay(1);
 
