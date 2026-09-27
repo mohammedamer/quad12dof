@@ -19,6 +19,19 @@ enum ServoId
   SERVO_COUNT
 };
 
+enum SideDirection
+{
+  NEUTRAL,
+  LEFT,
+  RIGHT
+};
+
+enum Range
+{
+  FULL,
+  HALF
+};
+
 struct Limb
 {
   ServoId hip;
@@ -62,6 +75,7 @@ const int SERVO_MIN_US = 500;
 const int SERVO_MAX_US = 2500;
 
 const int DELTA_ANGLE = 20;
+const int HALF_DELTA = DELTA_ANGLE / 2;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
 
@@ -97,7 +111,7 @@ void setServoNeutral(ServoId id)
   setServo((ServoId)id, servos[id].neutralAngle);
 }
 
-void moveServoDelta(ServoId id, bool up)
+void moveServoDelta(ServoId id, bool up, int delta)
 {
 
   int direction = servos[id].direction;
@@ -107,13 +121,30 @@ void moveServoDelta(ServoId id, bool up)
     direction *= -1;
   }
 
-  setServo(id, servos[id].neutralAngle + direction * DELTA_ANGLE);
+  setServo(id, servos[id].neutralAngle + direction * delta);
 }
 
-void moveLimb(struct Limb &limb, bool forward)
+int rangeToDelta(Range range)
 {
-  moveServoDelta(limb.hip, forward);
-  moveServoDelta(limb.knee, true); // Lift the foot in either travel direction.
+  int delta;
+
+  switch (range)
+  {
+  case FULL:
+    delta = DELTA_ANGLE;
+    break;
+  case HALF:
+    delta = HALF_DELTA;
+    break;
+  }
+
+  return delta;
+}
+
+void moveLimb(struct Limb &limb, bool forward, Range range)
+{
+  moveServoDelta(limb.hip, forward, rangeToDelta(range));
+  moveServoDelta(limb.knee, true, DELTA_ANGLE); // Lift the foot in either travel direction.
 }
 
 void putLimb(struct Limb &limb)
@@ -123,13 +154,43 @@ void putLimb(struct Limb &limb)
 
 void twistLimb(struct Limb &limb, bool forward)
 {
-  moveServoDelta(limb.hip, forward);
+  moveServoDelta(limb.hip, forward, DELTA_ANGLE);
 }
 
-void move(bool forward)
+void move(bool forward, SideDirection dir)
 {
-  moveLimb(leftAnterior, forward);
-  moveLimb(rightPosterior, forward);
+
+  Range la, ra, lp, rp;
+
+  switch (dir)
+  {
+  case NEUTRAL:
+    la = ra = lp = rp = FULL;
+    break;
+  case LEFT:
+    if (forward)
+    {
+      la = HALF;
+      rp = FULL;
+      ra = FULL;
+      lp = HALF;
+    }
+
+    break;
+  case RIGHT:
+    if (forward)
+    {
+      la = FULL;
+      rp = HALF;
+      ra = HALF;
+      lp = FULL;
+    }
+
+    break;
+  }
+
+  moveLimb(leftAnterior, forward, la);
+  moveLimb(rightPosterior, forward, rp);
   twistLimb(rightAnterior, !forward);
   twistLimb(leftPosterior, !forward);
 
@@ -140,8 +201,8 @@ void move(bool forward)
 
   delay(100);
 
-  moveLimb(rightAnterior, forward);
-  moveLimb(leftPosterior, forward);
+  moveLimb(rightAnterior, forward, ra);
+  moveLimb(leftPosterior, forward, lp);
   twistLimb(leftAnterior, !forward);
   twistLimb(rightPosterior, !forward);
 
@@ -155,8 +216,8 @@ void move(bool forward)
 
 void turn(bool right)
 {
-  moveLimb(leftAnterior, right);
-  moveLimb(rightPosterior, !right);
+  moveLimb(leftAnterior, right, FULL);
+  moveLimb(rightPosterior, !right, FULL);
   twistLimb(rightAnterior, right);
   twistLimb(leftPosterior, !right);
 
@@ -167,8 +228,8 @@ void turn(bool right)
 
   delay(100);
 
-  moveLimb(rightAnterior, !right);
-  moveLimb(leftPosterior, right);
+  moveLimb(rightAnterior, !right, FULL);
+  moveLimb(leftPosterior, right, FULL);
   twistLimb(leftAnterior, !right);
   twistLimb(rightPosterior, right);
 
@@ -195,8 +256,8 @@ void setup()
 void loop()
 {
 
-  turn(false);
-  // move(true);
+  // turn(false);
+  move(true, RIGHT);
   // setNeutral();
   // delay(1000);
 }
