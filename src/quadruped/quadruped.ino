@@ -1,6 +1,19 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include "controller_page.h"
+
+const char *ssid = "Quadruped";
+const char *password = "robot1234";
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
+// Queue complete states so command handling runs on loop(), not the network task.
+QueueHandle_t commandQueue;
+const size_t COMMAND_SIZE = 24;
 
 enum ServoId
 {
@@ -233,6 +246,75 @@ void turn(bool right)
   delay(100);
 }
 
+void handleRobotCommand(const String &command)
+{
+  Serial.print("Command: ");
+  Serial.println(command);
+  // TODO: Implement robot behavior here. Commands are complete states:
+  // STOP, FORWARD, BACKWARD, LEFT, RIGHT,
+  // FORWARD_LEFT, FORWARD_RIGHT, BACKWARD_LEFT, BACKWARD_RIGHT.
+}
+
+void queueRobotCommand(const char *command)
+{
+  char pending[COMMAND_SIZE] = {};
+  strlcpy(pending, command, sizeof(pending));
+  xQueueOverwrite(commandQueue, pending);
+  ws.textAll(command);
+}
+
+void onWebSocketEvent(AsyncWebSocket *socket, AsyncWebSocketClient *client,
+                      AwsEventType type, void *arg, uint8_t *data, size_t len)
+{
+  if (type == WS_EVT_CONNECT || type == WS_EVT_DISCONNECT)
+  {
+    // New/reconnected controllers start with all directions cleared.
+    queueRobotCommand("STOP");
+    return;
+  }
+  if (type != WS_EVT_DATA) return;
+
+  AwsFrameInfo *info = static_cast<AwsFrameInfo *>(arg);
+  if (!info->final || info->index != 0 || info->len != len ||
+      info->opcode != WS_TEXT || len == 0 || len >= COMMAND_SIZE) return;
+
+  const char *commands[] = {"STOP", "FORWARD", "BACKWARD", "LEFT", "RIGHT",
+                            "FORWARD_LEFT", "FORWARD_RIGHT",
+                            "BACKWARD_LEFT", "BACKWARD_RIGHT"};
+  for (const char *command : commands)
+  {
+    if (strlen(command) == len && memcmp(data, command, len) == 0)
+    {
+      queueRobotCommand(command);
+      return;
+    }
+  }
+}
+
+void setupWifiController()
+{
+  commandQueue = xQueueCreate(1, COMMAND_SIZE);
+  if (commandQueue == nullptr)
+  {
+    Serial.println("Unable to create controller queue");
+    return;
+  }
+  WiFi.mode(WIFI_AP);
+  if (!WiFi.softAP(ssid, password))
+  {
+    Serial.println("Unable to start Wi-Fi access point");
+    return;
+  }
+  ws.onEvent(onWebSocketEvent);
+  server.addHandler(&ws);
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", index_html);
+  });
+  server.begin();
+  Serial.print("Controller: http://");
+  Serial.println(WiFi.softAPIP());
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -243,13 +325,21 @@ void setup()
   delay(10);
 
   setNeutral();
+  setupWifiController();
 }
 
 void loop()
 {
+  ws.cleanupClients();
+  char command[COMMAND_SIZE];
+  if (commandQueue != nullptr && xQueueReceive(commandQueue, command, 0) == pdTRUE)
+  {
+    handleRobotCommand(String(command));
+  }
+  delay(1);
 
   // turn(false);
-  move(false, LEFT);
+  // move(false, LEFT);
   // setNeutral();
   // delay(1000);
 }
