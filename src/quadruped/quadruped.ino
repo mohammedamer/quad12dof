@@ -168,24 +168,16 @@ void move(bool forward, SideDirection dir)
     la = ra = lp = rp = FULL;
     break;
   case LEFT:
-    if (forward)
-    {
-      la = HALF;
-      rp = FULL;
-      ra = FULL;
-      lp = HALF;
-    }
-
+    la = HALF;
+    rp = FULL;
+    ra = FULL;
+    lp = HALF;
     break;
   case RIGHT:
-    if (forward)
-    {
-      la = FULL;
-      rp = HALF;
-      ra = HALF;
-      lp = FULL;
-    }
-
+    la = FULL;
+    rp = HALF;
+    ra = HALF;
+    lp = FULL;
     break;
   }
 
@@ -257,7 +249,7 @@ void loop()
 {
 
   // turn(false);
-  move(true, RIGHT);
+  move(false, LEFT);
   // setNeutral();
   // delay(1000);
 }
