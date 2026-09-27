@@ -124,6 +124,11 @@ const int HALF_DELTA = DELTA_ANGLE / 2;
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
 
 RobotCommand currentCommand = RobotCommand::Stop;
+RobotCommand activeCommand = RobotCommand::Stop;
+const uint32_t GAIT_PHASE_MS = 100;
+uint32_t phaseStartedAt = 0;
+uint8_t gaitPhase = 0;
+bool gaitRunning = false;
 
 int angleToPulse(int angle)
 {
@@ -203,80 +208,61 @@ void twistLimb(struct Limb &limb, bool forward)
   moveServoDelta(limb.hip, forward, DELTA_ANGLE);
 }
 
-void move(bool forward, SideDirection dir)
+// Execute one phase only; updateGait() supplies the timing.
+void move(bool forward, SideDirection dir, uint8_t phase)
 {
-
-  Range la, ra, lp, rp;
-
-  switch (dir)
+  const Range leftRange = dir == LEFT ? HALF : FULL;
+  const Range rightRange = dir == RIGHT ? HALF : FULL;
+  switch (phase)
   {
-  case NEUTRAL:
-    la = ra = lp = rp = FULL;
+  case 0:
+    moveLimb(leftAnterior, forward, leftRange);
+    moveLimb(rightPosterior, forward, rightRange);
+    twistLimb(rightAnterior, !forward);
+    twistLimb(leftPosterior, !forward);
     break;
-  case LEFT:
-    la = HALF;
-    rp = FULL;
-    ra = FULL;
-    lp = HALF;
+  case 1:
+    putLimb(leftAnterior);
+    putLimb(rightPosterior);
     break;
-  case RIGHT:
-    la = FULL;
-    rp = HALF;
-    ra = HALF;
-    lp = FULL;
+  case 2:
+    moveLimb(rightAnterior, forward, rightRange);
+    moveLimb(leftPosterior, forward, leftRange);
+    twistLimb(leftAnterior, !forward);
+    twistLimb(rightPosterior, !forward);
+    break;
+  case 3:
+    putLimb(rightAnterior);
+    putLimb(leftPosterior);
     break;
   }
-
-  moveLimb(leftAnterior, forward, la);
-  moveLimb(rightPosterior, forward, rp);
-  twistLimb(rightAnterior, !forward);
-  twistLimb(leftPosterior, !forward);
-
-  delay(100);
-
-  putLimb(leftAnterior);
-  putLimb(rightPosterior);
-
-  delay(100);
-
-  moveLimb(rightAnterior, forward, ra);
-  moveLimb(leftPosterior, forward, lp);
-  twistLimb(leftAnterior, !forward);
-  twistLimb(rightPosterior, !forward);
-
-  delay(100);
-
-  putLimb(rightAnterior);
-  putLimb(leftPosterior);
-
-  delay(100);
 }
 
-void turn(bool right)
+void turn(bool right, uint8_t phase)
 {
-  moveLimb(leftAnterior, right, FULL);
-  moveLimb(rightPosterior, !right, FULL);
-  twistLimb(rightAnterior, right);
-  twistLimb(leftPosterior, !right);
-
-  delay(100);
-
-  putLimb(leftAnterior);
-  putLimb(rightPosterior);
-
-  delay(100);
-
-  moveLimb(rightAnterior, !right, FULL);
-  moveLimb(leftPosterior, right, FULL);
-  twistLimb(leftAnterior, !right);
-  twistLimb(rightPosterior, right);
-
-  delay(100);
-
-  putLimb(rightAnterior);
-  putLimb(leftPosterior);
-
-  delay(100);
+  switch (phase)
+  {
+  case 0:
+    moveLimb(leftAnterior, right, FULL);
+    moveLimb(rightPosterior, !right, FULL);
+    twistLimb(rightAnterior, right);
+    twistLimb(leftPosterior, !right);
+    break;
+  case 1:
+    putLimb(leftAnterior);
+    putLimb(rightPosterior);
+    break;
+  case 2:
+    moveLimb(rightAnterior, !right, FULL);
+    moveLimb(leftPosterior, right, FULL);
+    twistLimb(leftAnterior, !right);
+    twistLimb(rightPosterior, right);
+    break;
+  case 3:
+    putLimb(rightAnterior);
+    putLimb(leftPosterior);
+    break;
+  }
 }
 
 bool parseCommand(const String &text, RobotCommand &result)
@@ -303,7 +289,7 @@ const char *commandToText(RobotCommand command)
   return "UNKNOWN";
 }
 
-void handleRobotCommand(RobotCommand command)
+void runGaitPhase(RobotCommand command, uint8_t phase)
 {
   // Each command represents the complete selected direction state.
 
@@ -311,49 +297,85 @@ void handleRobotCommand(RobotCommand command)
   {
   case RobotCommand::Stop:
 
-    setNeutral();
     break;
 
   case RobotCommand::Forward:
 
-    move(true, NEUTRAL);
+    move(true, NEUTRAL, phase);
     break;
 
   case RobotCommand::Backward:
 
-    move(false, NEUTRAL);
+    move(false, NEUTRAL, phase);
     break;
 
   case RobotCommand::Left:
 
-    turn(false);
+    turn(false, phase);
     break;
 
   case RobotCommand::Right:
 
-    turn(true);
+    turn(true, phase);
     break;
 
   case RobotCommand::ForwardLeft:
 
-    move(true, LEFT);
+    move(true, LEFT, phase);
     break;
 
   case RobotCommand::ForwardRight:
 
-    move(true, RIGHT);
+    move(true, RIGHT, phase);
     break;
 
   case RobotCommand::BackwardLeft:
 
-    move(false, LEFT);
+    move(false, LEFT, phase);
     break;
 
   case RobotCommand::BackwardRight:
 
-    move(false, RIGHT);
+    move(false, RIGHT, phase);
     break;
   }
+}
+
+void handleRobotCommand(RobotCommand command)
+{
+  currentCommand = command;
+  if (command == RobotCommand::Stop)
+  {
+    gaitRunning = false;
+    activeCommand = RobotCommand::Stop;
+    gaitPhase = 0;
+    setNeutral();
+  }
+}
+
+void updateGait()
+{
+  if (currentCommand == RobotCommand::Stop) return;
+
+  const uint32_t now = millis();
+  if (!gaitRunning)
+  {
+    gaitRunning = true;
+    gaitPhase = 0;
+    activeCommand = currentCommand;
+  }
+  else
+  {
+    // Unsigned subtraction remains valid when millis() wraps around.
+    if (static_cast<uint32_t>(now - phaseStartedAt) < GAIT_PHASE_MS) return;
+    gaitPhase = (gaitPhase + 1) % 4;
+    // Finish the old cycle before applying a new movement direction.
+    if (gaitPhase == 0) activeCommand = currentCommand;
+  }
+
+  runGaitPhase(activeCommand, gaitPhase);
+  // Wait a full interval after servo writes; never rush through overdue phases.
+  phaseStartedAt = millis();
 }
 
 void queueRobotCommand(RobotCommand command)
@@ -432,16 +454,12 @@ void loop()
                                xQueueReceive(commandQueue, &command, 0) == pdTRUE;
   if (receivedCommand)
   {
-    currentCommand = command;
+    handleRobotCommand(command);
     Serial.print("Command: ");
     Serial.println(commandToText(currentCommand));
   }
 
-  // Apply Stop once on receipt; keep running gait cycles for movement commands.
-  if (receivedCommand || currentCommand != RobotCommand::Stop)
-  {
-    handleRobotCommand(currentCommand);
-  }
+  updateGait();
 
   delay(1);
 }

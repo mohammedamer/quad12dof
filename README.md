@@ -63,17 +63,18 @@ buttons are highlighted. The page reconnects automatically and clears selections
 on disconnect, reconnect, or when hidden. Connecting or disconnecting any browser
 queues `STOP` and clears the other connected controllers too.
 
-`handleRobotCommand()` in `src/quadruped/quadruped.ino` only logs commands for now;
-add your robot behavior there. It runs from `loop()`, once per received state.
-Incoming strings are validated by `parseCommand()` and converted to `RobotCommand`;
-the queue and handler use that enum. Unknown strings are ignored. Use cases such
-as `RobotCommand::ForwardRight` in the handler; text is retained for WebSocket
-messages and serial logging.
-States are `STOP`, `FORWARD`, `BACKWARD`, `LEFT`, `RIGHT`, `FORWARD_LEFT`,
+`handleRobotCommand()` in `src/quadruped/quadruped.ino` stores the requested
+`currentCommand`. Incoming strings are validated by `parseCommand()` and converted
+to `RobotCommand`; unknown strings are ignored. Logging occurs once per received
+state. States are `STOP`, `FORWARD`, `BACKWARD`, `LEFT`, `RIGHT`, `FORWARD_LEFT`,
 `FORWARD_RIGHT`, `BACKWARD_LEFT`, and `BACKWARD_RIGHT`. Each replaces the entire
-previous selection. The queue keeps only the latest pending state. For ongoing
-walking, store the selected state and update the gait from `loop()`.
+previous selection; the queue keeps only the latest pending state.
+
+`updateGait()` advances four phases using `millis()`, with 100 ms between phases.
+Movement changes take effect at the next cycle boundary. Stop cancels the cycle
+and calls `setNeutral()` when received by the loop, without waiting for a phase
+timer. Restarting movement begins at phase zero. Physical servo motion still takes
+time; the loop remains available between phase updates.
 
 The page is embedded in `src/quadruped/controller_page.h`; no internet connection
-or separate file upload is required. Disconnect handling queues a command only;
-implementing the robot's physical stop behavior is left to the command handler.
+or separate file upload is required.
